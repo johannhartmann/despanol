@@ -6,16 +6,21 @@ import re
 import time
 import argparse
 import sys
+import os
+from appdirs import user_data_dir
 
 # --- Configuration ---
 BEAM_WIDTH = 50
 MAX_CHUNK_SIZE = 4
+APP_NAME = "Despanol"
+APP_AUTHOR = "Johann"
+DATA_DIR = user_data_dir(APP_NAME, APP_AUTHOR)
+DB_PATH = os.path.join(DATA_DIR, "spanish_database.csv")
 
 def transliterate(german_text, spanish_words_by_syllable, pyphen_dic_de, epi_de):
     """
     Transliterates a German text using an optimized beam search algorithm.
     """
-    # --- 1. Pre-process German Input ---
     german_words = re.findall(r'\b\w+\b', german_text.lower())
     german_syllables_ipa = []
     for word in german_words:
@@ -27,11 +32,9 @@ def transliterate(german_text, spanish_words_by_syllable, pyphen_dic_de, epi_de)
     if target_syllable_count == 0:
         return ""
 
-    # --- 2. Beam Search Initialization ---
     initial_hypothesis = (0, [], 0)
     beam = [initial_hypothesis]
 
-    # --- 3. Main Loop ---
     while True:
         new_hypotheses = []
         all_done = all(h[2] >= target_syllable_count for h in beam)
@@ -62,7 +65,6 @@ def transliterate(german_text, spanish_words_by_syllable, pyphen_dic_de, epi_de)
         new_hypotheses.sort(key=lambda x: x[0] / x[2] if x[2] > 0 else 0)
         beam = new_hypotheses[:BEAM_WIDTH]
 
-    # --- 6. Select the Best Valid Result ---
     best_hypothesis = None
     lowest_score = float('inf')
     
@@ -88,14 +90,14 @@ def main():
     Main function to handle CLI arguments and the transliteration process.
     """
     parser = argparse.ArgumentParser(description="Phonetically transliterate a German text file to Spanish.")
-    parser.add_argument("--input", required=True, help="Path to the input text file (e.g., poem.txt).")
-    parser.add_argument("--output", required=True, help="Path to the output text file to save the results.")
+    parser.add_argument("input_file", help="Path to the input text file (use '-' for stdin).")
+    parser.add_argument("--output", help="Path to the output text file (defaults to stdout).")
     args = parser.parse_args()
 
-    print("Loading and pre-processing database...")
+    print("Loading and pre-processing database...", file=sys.stderr)
     start_time = time.time()
     try:
-        df = pd.read_csv('spanish_database.csv')
+        df = pd.read_csv(DB_PATH)
         df.dropna(subset=['ipa', 'word'], inplace=True)
         
         spanish_words_by_syllable = {}
@@ -106,47 +108,58 @@ def main():
             spanish_words_by_syllable[syllables].append({'word': row['word'], 'ipa': row['ipa']})
 
     except FileNotFoundError:
-        print("Error: spanish_database.csv not found. Please run generate_data.py first.", file=sys.stderr)
+        print(f"Error: Database not found at {DB_PATH}", file=sys.stderr)
+        print("Please run 'despanol-generate-data' first to create it.", file=sys.stderr)
         sys.exit(1)
     
     pyphen_dic_de = pyphen.Pyphen(lang='de_DE')
     epi_de = epitran.Epitran('deu-Latn')
     
     end_time = time.time()
-    print(f"Database ready in {end_time - start_time:.2f} seconds.\n")
+    print(f"Database ready in {end_time - start_time:.2f} seconds.\n", file=sys.stderr)
 
-    try:
-        with open(args.input, 'r') as f:
-            lines = [line for line in f.read().splitlines() if line]
-    except FileNotFoundError:
-        print(f"Error: Input file not found at {args.input}", file=sys.stderr)
-        sys.exit(1)
+    if args.input_file == '-':
+        lines = [line for line in sys.stdin.read().splitlines() if line]
+    else:
+        try:
+            with open(args.input_file, 'r') as f:
+                lines = [line for line in f.read().splitlines() if line]
+        except FileNotFoundError:
+            print(f"Error: Input file not found at {args.input_file}", file=sys.stderr)
+            sys.exit(1)
 
     total_lines = len(lines)
     processing_times = []
     
-    with open(args.output, 'w') as out_f:
-        for i, line in enumerate(lines):
-            line_start_time = time.time()
-            
-            spanish_output = transliterate(line, spanish_words_by_syllable, pyphen_dic_de, epi_de)
-            
-            line_end_time = time.time()
-            line_duration = line_end_time - line_start_time
-            processing_times.append(line_duration)
-            
-            avg_time = sum(processing_times) / len(processing_times)
-            lines_remaining = total_lines - (i + 1)
-            eta = avg_time * lines_remaining
-            
-            print(f"[{i+1}/{total_lines}] Processing line...")
-            print(f"  German:  {line}")
-            print(f"  Spanish: {spanish_output}")
-            print(f"  (Took {line_duration:.2f}s, ETA: {eta:.2f}s)\n")
-            
-            out_f.write(spanish_output + '\n')
+    output_lines = []
+    for i, line in enumerate(lines):
+        line_start_time = time.time()
+        
+        spanish_output = transliterate(line, spanish_words_by_syllable, pyphen_dic_de, epi_de)
+        output_lines.append(spanish_output)
+        
+        line_end_time = time.time()
+        line_duration = line_end_time - line_start_time
+        processing_times.append(line_duration)
+        
+        avg_time = sum(processing_times) / len(processing_times)
+        lines_remaining = total_lines - (i + 1)
+        eta = avg_time * lines_remaining
+        
+        print(f"[{i+1}/{total_lines}] Processed line in {line_duration:.2f}s. ETA: {eta:.2f}s", file=sys.stderr)
 
-    print(f"Transliteration complete. Output saved to {args.output}")
+    if args.output:
+        try:
+            with open(args.output, 'w') as out_f:
+                for line in output_lines:
+                    out_f.write(line + '\n')
+            print(f"\nTransliteration complete. Output saved to {args.output}", file=sys.stderr)
+        except IOError as e:
+            print(f"Error writing to output file {args.output}: {e}", file=sys.stderr)
+            sys.exit(1)
+    else:
+        for line in output_lines:
+            print(line)
 
 if __name__ == "__main__":
     main()

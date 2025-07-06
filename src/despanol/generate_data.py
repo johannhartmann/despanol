@@ -1,68 +1,73 @@
-import requests
 import pandas as pd
 import pyphen
 import epitran
 import os
+import requests
+from appdirs import user_data_dir
+
+# --- Configuration ---
+APP_NAME = "Despanol"
+APP_AUTHOR = "Johann"
+DATA_DIR = user_data_dir(APP_NAME, APP_AUTHOR)
+DB_PATH = os.path.join(DATA_DIR, "spanish_database.csv")
 
 def generate_database():
     """
     Downloads a Spanish word list, processes it to get IPA and syllable counts,
-    and saves the results to a CSV file.
+    and saves the results to a CSV file in the user's data directory.
     """
+    print(f"Database will be saved to: {DB_PATH}")
+    os.makedirs(DATA_DIR, exist_ok=True)
+
     # URL of the Spanish word list from a GitHub repository
     url = "https://raw.githubusercontent.com/hermitdave/FrequencyWords/master/content/2018/es/es_50k.txt"
     
-    # Download the word list
     print("Downloading Spanish word list...")
     response = requests.get(url)
     response.raise_for_status()
     print("Download complete.")
     
-    # The content is a simple text file with one word per line, with frequency
     lines = response.text.splitlines()
-    
-    # Extract words from the lines
     words = [line.split(' ')[0] for line in lines]
             
-    # Initialize pyphen for syllable counting and epitran for IPA conversion
     pyphen_dic = pyphen.Pyphen(lang='es_ES')
     epi = epitran.Epitran('spa-Latn')
     
-    # Process each word
     data = []
-    print(f"Processing {len(words)} words...")
+    total_words = len(words)
+    print(f"Processing {total_words} words...")
     for i, word in enumerate(words):
-        # Skip empty or NaN words
         if not word or pd.isna(word):
             continue
         
         try:
-            # Generate IPA
             ipa = epi.transliterate(word)
-            
-            # Skip words that fail to transliterate to a non-empty string
             if not ipa:
                 continue
-
-            # Calculate syllable count
             syllables = len(pyphen_dic.inserted(word).split('-'))
-            
             data.append({'word': word, 'ipa': ipa, 'syllables': syllables})
-        except:
-            # Skip words that fail to transliterate
+        except Exception:
             continue
         
         if (i + 1) % 1000 == 0:
-            print(f"  Processed {i + 1} words...")
+            print(f"  Processed {i + 1}/{total_words} words...")
             
     print("Processing complete.")
     
-    # Create a DataFrame and save to CSV
     df = pd.DataFrame(data)
-    output_path = 'spanish_database.csv'
-    df.to_csv(output_path, index=False)
+    df.to_csv(DB_PATH, index=False)
     
-    print(f"Database saved to {output_path}")
+    print(f"Database successfully saved to {DB_PATH}")
+
+def main():
+    """
+    Main function to be called by the entry point script.
+    """
+    try:
+        generate_database()
+    except Exception as e:
+        print(f"An error occurred: {e}", file=sys.stderr)
+        sys.exit(1)
 
 if __name__ == "__main__":
-    generate_database()
+    main()

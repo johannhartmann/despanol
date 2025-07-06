@@ -24,6 +24,7 @@
           pandas
           setuptools
           levenshtein
+          appdirs
         ]);
         
         pyprojectToml = builtins.fromTOML (builtins.readFile ./pyproject.toml);
@@ -44,7 +45,7 @@
             echo ""
           '';
 
-          PYTHONPATH = ".";
+          PYTHONPATH = "./src";
         };
         
         packages.default = python.pkgs.buildPythonPackage {
@@ -66,6 +67,7 @@
             pandas
             setuptools
             levenshtein
+            appdirs
           ];
           
           meta = with pkgs.lib; {

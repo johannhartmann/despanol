@@ -4,96 +4,94 @@ A Python tool that transliterates German text into phonetically similar Spanish 
 
 ## Description
 
-This project provides a command-line tool to find Spanish words and phrases that phonetically mimic German text. The core goal is not translation, but **phonetic mimicry**. The tool is built using a reproducible development environment defined by Nix Flakes.
+This project provides a command-line tool to find Spanish words and phrases that phonetically mimic German text. The core goal is not translation, but **phonetic mimicry**.
 
-The process involves:
-1.  A data generation script (`generate_data.py`) that builds a phonetic database of over 49,000 Spanish words, including their IPA pronunciation and syllable count.
-2.  The main transliteration script (`transliterate.py`) which uses a beam search algorithm to find the best phonetic match for a given German text from the database. It prioritizes finding a perfect syllable match and includes a fallback to find the closest possible match if a perfect one isn't available.
+The tool can be installed directly from GitHub and provides two command-line utilities:
+*   `despanol-generate-data`: Downloads and prepares the necessary phonetic data.
+*   `despanol`: The main transliteration tool.
 
-## Installation & Environment Setup
+## Installation
 
-The entire project is managed by [Nix Flakes](https://nixos.wiki/wiki/Flakes), ensuring a fully reproducible development environment.
+You can install the tool directly from GitHub using `pip`, `uv`, or `nix profile`.
 
-### Prerequisites
+### Using `pip`
+```bash
+pip install git+https://github.com/johannhartmann/despanol.git
+```
 
-You must have Nix installed with Flakes enabled. You can follow the instructions on the [official Nix website](https://nixos.org/download.html).
+### Using `uv`
+```bash
+uv pip install git+https://github.com/johannhartmann/despanol.git
+```
 
-### Running the Environment
-
-1.  **Clone the repository:**
-    ```bash
-    git clone <repo_url>
-    cd despanol
-    ```
-
-2.  **Enter the development shell:**
-    Running the following command will automatically download all required dependencies (Python, libraries, etc.) and drop you into a shell where everything is ready to use.
-
-    ```bash
-    nix develop
-    ```
-
-    You are now inside the project's environment.
+### Using Nix
+For a system-wide installation with Nix:
+```bash
+nix profile install github:johannhartmann/despanol
+```
 
 ## Usage
 
-The project is split into two main scripts.
-
 ### 1. Generate the Phonetic Database
 
-Before you can perform any transliteration, you must first generate the Spanish phonetic database.
+Before you can perform any transliteration, you must first generate the Spanish phonetic database. This command only needs to be run once. It will download the necessary data and store it in a local user data directory.
 
-Inside the `nix develop` shell, run:
 ```bash
-python generate_data.py
+despanol-generate-data
 ```
-This will download a Spanish word frequency list and create the `spanish_database.csv` file in the project root. This only needs to be done once.
+This will download a ~50,000-word Spanish frequency list and process it into a phonetic database, which takes a few minutes.
 
-### 2. Transliterate a File
+### 2. Transliterate Text
 
-The main tool provides a command-line interface for transliterating a German text file.
+Once the database is generated, you can use the `despanol` command to transliterate text.
 
 **Command:**
 ```bash
-python transliterate.py --input <input_file.txt> --output <output_file.txt>
+despanol <input_file> --output <output_file>
 ```
 
 **Arguments:**
-*   `--input`: The path to the input text file containing German text.
-*   `--output`: The path where the resulting Spanish transliteration will be saved.
+*   `input_file`: The path to the input text file containing German text. Use `-` to read from standard input (stdin).
+*   `--output`: (Optional) The path where the resulting Spanish transliteration will be saved. If omitted, the output will be printed to standard output (stdout).
 
-**Example:**
+**Examples:**
 
+#### Transliterating a File:
 1.  Create an input file `poem.txt`:
     ```
     Grüne Blätter, süßer Schall,
     Vögel zwitschern überall.
     ```
 
-2.  Run the transliteration:
+2.  Run the transliteration and save to a file:
     ```bash
-    python transliterate.py --input poem.txt --output spanish_poem.txt
+    despanol poem.txt --output spanish_poem.txt
+    ```
+    The script will print its progress to the console and save the final result in `spanish_poem.txt`.
+
+#### Using Pipes (stdin/stdout):
+You can also use standard shell pipes to chain commands.
+
+```bash
+echo "Ich liebe dich" | despanol -
+```
+**Output:**
+```
+y liz va di
+```
+
+## Development
+
+For development, you can use the included Nix Flake to get a reproducible environment with all dependencies.
+
+1.  **Clone the repository:**
+    ```bash
+    git clone https://github.com/johannhartmann/despanol.git
+    cd despanol
     ```
 
-3.  The script will print its progress to the console and save the final result in `spanish_poem.txt`.
-
-    **Console Output:**
+2.  **Enter the development shell:**
+    ```bash
+    nix develop
     ```
-    [1/2] Processing line...
-      German:  Grüne Blätter, süßer Schall,
-      Spanish: camino platt personal
-      (Took 25.51s, ETA: 32.78s)
-
-    [2/2] Processing line...
-      German:  Vögel zwitschern überall.
-      Spanish: fue el chist carnaval
-      (Took 32.78s, ETA: 0.00s)
-
-    Transliteration complete. Output saved to spanish_poem.txt
-    ```
-
-    **`spanish_poem.txt` Contents:**
-    ```
-    camino platt personal
-    fue el chist carnaval
-    ```
+    You are now inside the project's environment with all tools and libraries available. The source code is in the `src/` directory.
