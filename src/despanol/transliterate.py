@@ -4,90 +4,63 @@ import re
 import sys
 import time
 
-import epitran
-import Levenshtein
+import numpy as np
 import pandas as pd
 import pyphen
 from appdirs import user_data_dir
+from tensorflow.keras.models import load_model
+
+import epitran
 
 # --- Configuration ---
-BEAM_WIDTH = 50
-MAX_CHUNK_SIZE = 4
 APP_NAME = "Despanol"
 APP_AUTHOR = "Johann"
 DATA_DIR = user_data_dir(APP_NAME, APP_AUTHOR)
 DB_PATH = os.path.join(DATA_DIR, "spanish_database.csv")
+MODEL_PATH = os.path.join(DATA_DIR, "s2s_model.keras")
 
 
-def transliterate(german_text, spanish_words_by_syllable, pyphen_dic_de, epi_de):
+def transliterate(
+    german_text, model, input_token_index, target_token_index, max_decoder_seq_length
+):
     """
-    Transliterates a German text using an optimized beam search algorithm.
+    Transliterates a German text using the trained sequence-to-sequence model.
     """
-    german_words = re.findall(r"\b\w+\b", german_text.lower())
-    german_syllables_ipa = []
-    for word in german_words:
-        syllables = pyphen_dic_de.inserted(word).split("-")
-        for syllable in syllables:
-            german_syllables_ipa.append(epi_de.transliterate(syllable))
+    epi_de = epitran.Epitran("deu-Latn")
+    german_ipa = epi_de.transliterate(german_text)
 
-    target_syllable_count = len(german_syllables_ipa)
-    if target_syllable_count == 0:
-        return ""
+    encoder_input_data = np.zeros(
+        (1, len(german_ipa), len(input_token_index)), dtype="float32"
+    )
+    for t, char in enumerate(german_ipa):
+        if char in input_token_index:
+            encoder_input_data[0, t, input_token_index[char]] = 1.0
 
-    initial_hypothesis = (0, [], 0)
-    beam = [initial_hypothesis]
+    # Decode the input
+    # This is a simplified decoding process. A more advanced implementation
+    # would use a beam search here as well.
+    target_seq = np.zeros((1, 1, len(target_token_index)))
+    target_seq[0, 0, target_token_index["\t"]] = 1.0
 
-    while True:
-        new_hypotheses = []
-        all_done = all(h[2] >= target_syllable_count for h in beam)
-        if all_done:
-            break
+    stop_condition = False
+    decoded_sentence = ""
+    while not stop_condition:
+        output_tokens, h, c = model.layers[3].predict([target_seq] + states_value)
 
-        for score, path, index in beam:
-            if index >= target_syllable_count:
-                new_hypotheses.append((score, path, index))
-                continue
+        # Sample a token
+        sampled_token_index = np.argmax(output_tokens[0, -1, :])
+        sampled_char = reverse_target_char_index[sampled_token_index]
+        decoded_sentence += sampled_char
 
-            for chunk_len in range(1, MAX_CHUNK_SIZE + 1):
-                if index + chunk_len > target_syllable_count:
-                    continue
+        if sampled_char == "\n" or len(decoded_sentence) > max_decoder_seq_length:
+            stop_condition = True
 
-                german_chunk_ipa = "".join(
-                    german_syllables_ipa[index : index + chunk_len]
-                )
-                candidate_words = spanish_words_by_syllable.get(chunk_len, [])
+        target_seq = np.zeros((1, 1, len(target_token_index)))
+        target_seq[0, 0, sampled_token_index] = 1.0
 
-                for candidate in candidate_words:
-                    distance = Levenshtein.distance(german_chunk_ipa, candidate["ipa"])
-                    new_path = path + [candidate["word"]]
-                    new_score = score + distance
-                    new_index = index + chunk_len
-                    new_hypotheses.append((new_score, new_path, new_index))
+        states_value = [h, c]
 
-        if not new_hypotheses:
-            break
-        new_hypotheses.sort(key=lambda x: x[0] / x[2] if x[2] > 0 else 0)
-        beam = new_hypotheses[:BEAM_WIDTH]
-
-    best_hypothesis = None
-    lowest_score = float("inf")
-
-    perfect_matches = [h for h in beam if h[2] == target_syllable_count]
-    if perfect_matches:
-        perfect_matches.sort(key=lambda x: x[0])
-        return " ".join(perfect_matches[0][1])
-
-    for score, path, final_count in beam:
-        if abs(final_count - target_syllable_count) == 0:
-            normalized_score = score / final_count if final_count > 0 else 0
-            if normalized_score < lowest_score:
-                lowest_score = normalized_score
-                best_hypothesis = path
-
-    if best_hypothesis:
-        return " ".join(best_hypothesis)
-    else:
-        return "<?> (No translation could be generated)"
+    return decoded_sentence
 
 
 def main():
@@ -105,33 +78,33 @@ def main():
     )
     args = parser.parse_args()
 
-    print("Loading and pre-processing database...", file=sys.stderr)
+    print("Loading model and database...", file=sys.stderr)
     start_time = time.time()
     try:
+        model = load_model(MODEL_PATH)
         df = pd.read_csv(DB_PATH)
         df.dropna(subset=["ipa", "word"], inplace=True)
 
-        spanish_words_by_syllable = {}
-        for _, row in df.iterrows():
-            syllables = int(row["syllables"])
-            if syllables not in spanish_words_by_syllable:
-                spanish_words_by_syllable[syllables] = []
-            spanish_words_by_syllable[syllables].append(
-                {"word": row["word"], "ipa": row["ipa"]}
-            )
+        input_texts = df["ipa"].tolist()
+        target_texts = df["ipa"].tolist()
+        input_characters = sorted(list(set("".join(input_texts))))
+        target_characters = sorted(list(set("".join(target_texts))))
+        max_decoder_seq_length = max([len(txt) for txt in target_texts])
+        input_token_index = dict([(char, i) for i, char in enumerate(input_characters)])
+        target_token_index = dict(
+            [(char, i) for i, char in enumerate(target_characters)]
+        )
 
     except FileNotFoundError:
-        print(f"Error: Database not found at {DB_PATH}", file=sys.stderr)
+        print(f"Error: Model or database not found.", file=sys.stderr)
         print(
-            "Please run 'despanol-generate-data' first to create it.", file=sys.stderr
+            "Please run 'despanol-generate-data' and 'train.py' first.",
+            file=sys.stderr,
         )
         sys.exit(1)
 
-    pyphen_dic_de = pyphen.Pyphen(lang="de_DE")
-    epi_de = epitran.Epitran("deu-Latn")
-
     end_time = time.time()
-    print(f"Database ready in {end_time - start_time:.2f} seconds.\n", file=sys.stderr)
+    print(f"Model and database ready in {end_time - start_time:.2f} seconds.\n", file=sys.stderr)
 
     if args.input_file == "-":
         lines = [line for line in sys.stdin.read().splitlines() if line]
@@ -143,31 +116,12 @@ def main():
             print(f"Error: Input file not found at {args.input_file}", file=sys.stderr)
             sys.exit(1)
 
-    total_lines = len(lines)
-    processing_times = []
-
     output_lines = []
-    for i, line in enumerate(lines):
-        line_start_time = time.time()
-
+    for line in lines:
         spanish_output = transliterate(
-            line, spanish_words_by_syllable, pyphen_dic_de, epi_de
+            line, model, input_token_index, target_token_index, max_decoder_seq_length
         )
         output_lines.append(spanish_output)
-
-        line_end_time = time.time()
-        line_duration = line_end_time - line_start_time
-        processing_times.append(line_duration)
-
-        avg_time = sum(processing_times) / len(processing_times)
-        lines_remaining = total_lines - (i + 1)
-        eta = avg_time * lines_remaining
-
-        print(
-            f"[{i+1}/{total_lines}] Processed line in {line_duration:.2f}s. "
-            f"ETA: {eta:.2f}s",
-            file=sys.stderr,
-        )
 
     if args.output:
         try:

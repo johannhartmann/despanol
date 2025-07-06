@@ -41,9 +41,18 @@ despanol-generate-data
 ```
 This will download a ~50,000-word Spanish frequency list and process it into a phonetic database, which takes a few minutes.
 
-### 2. Transliterate Text
+### 2. Train the Model
 
-Once the database is generated, you can use the `despanol` command to transliterate text.
+Once the database is generated, you must train the sequence-to-sequence model.
+
+```bash
+python train.py
+```
+This will train a simple sequence-to-sequence model with an attention mechanism on the phonetic database. The trained model will be saved to `s2s_model.keras` in the user's data directory.
+
+### 3. Transliterate Text
+
+Once the model is trained, you can use the `despanol` command to transliterate text.
 
 **Command:**
 ```bash
@@ -74,10 +83,6 @@ You can also use standard shell pipes to chain commands.
 
 ```bash
 echo "Ich liebe dich" | despanol -
-```
-**Output:**
-```
-y liz va di
 ```
 
 ## Development

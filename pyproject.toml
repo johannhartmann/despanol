@@ -1,6 +1,6 @@
 [project]
 name = "despanol"
-version = "0.2.1" # Bump version for QA tools
+version = "0.3.0" # Bump version for new model
 description = "Python Tool for Phonetic Transliteration (German to Spanish)"
 authors = ["Johann <johann@example.com>"]
 dependencies = [
@@ -10,7 +10,8 @@ dependencies = [
   "pandas",
   "setuptools",
   "python-Levenshtein",
-  "appdirs"
+  "appdirs",
+  "tensorflow",
 ]
 readme = "README.md"
 requires-python = ">=3.8"

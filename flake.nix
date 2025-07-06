@@ -25,6 +25,7 @@
           setuptools
           levenshtein
           appdirs
+          tensorflow
           
           # QA Tools
           black
@@ -75,6 +76,7 @@
             setuptools
             levenshtein
             appdirs
+            tensorflow
           ];
           
           meta = with pkgs.lib; {
