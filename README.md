@@ -95,3 +95,31 @@ For development, you can use the included Nix Flake to get a reproducible enviro
     nix develop
     ```
     You are now inside the project's environment with all tools and libraries available. The source code is in the `src/` directory.
+
+## Quality Assurance
+
+This project uses a suite of tools to ensure code quality.
+
+### Formatting (Black)
+To automatically format the code according to the project's style:
+```bash
+black src/ tests/
+```
+
+### Linting (Ruff)
+To check for common errors and style issues:
+```bash
+ruff check src/ tests/
+```
+
+### Type Checking (MyPy)
+To perform static type analysis:
+```bash
+mypy src/
+```
+
+### Testing (Pytest)
+To run the test suite:
+```bash
+pytest
+```

@@ -1,6 +1,6 @@
 [project]
 name = "despanol"
-version = "0.2.0" # Bump version for new structure
+version = "0.2.1" # Bump version for QA tools
 description = "Python Tool for Phonetic Transliteration (German to Spanish)"
 authors = ["Johann <johann@example.com>"]
 dependencies = [
@@ -26,6 +26,16 @@ Homepage = "https://github.com/johannhartmann/despanol"
 [project.scripts]
 despanol-generate-data = "despanol.generate_data:main"
 despanol = "despanol.transliterate:main"
+
+[project.optional-dependencies]
+dev = [
+    "black",
+    "ruff",
+    "mypy",
+    "pytest",
+    "pandas-stubs",
+    "types-requests",
+]
 
 [build-system]
 requires = ["hatchling"]

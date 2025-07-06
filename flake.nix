@@ -25,6 +25,14 @@
           setuptools
           levenshtein
           appdirs
+          
+          # QA Tools
+          black
+          ruff
+          mypy
+          pytest
+          pandas-stubs
+          types-requests
         ]);
         
         pyprojectToml = builtins.fromTOML (builtins.readFile ./pyproject.toml);
@@ -38,11 +46,10 @@
           ];
 
           shellHook = ''
-            echo "──────────────��───────────────────"
-            echo "Despanol Development Environment"
             echo "──────────────────────────────────"
-            echo "Python: ${python.version}"
-            echo ""
+            echo "      Despanol Development"
+            echo "──────────────────────────────────"
+            echo "QA tools available: black, ruff, mypy, pytest"
           '';
 
           PYTHONPATH = "./src";
