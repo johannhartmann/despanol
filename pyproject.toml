@@ -1,0 +1,20 @@
+[project]
+name = "despanol"
+version = "0.1.0"
+description = "Python Tool for Phonetic Transliteration (German to Spanish)"
+authors = ["Johann <johann@example.com>"]
+dependencies = [
+  "nltk",
+  "pyphen",
+  "epitran",
+  "pandas",
+  "setuptools",
+  "python-Levenshtein",
+]
+
+[project.urls]
+Homepage = "https://github.com/johann/despanol"
+
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"

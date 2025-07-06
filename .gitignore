@@ -1,0 +1,29 @@
+# Nix environment files
+result
+.direnv/
+flake.lock
+
+# Python cache and artifacts
+__pycache__/
+*.pyc
+*.pyo
+*.pyd
+.Python
+env/
+venv/
+.venv/
+pip-wheel-metadata/
+.eggs/
+dist/
+build/
+*.egg-info/
+
+# Generated data file
+spanish_database.csv
+spanish_poem.txt
+
+# IDE and editor directories
+.vscode/
+.idea/
+*.swp
+*.swo
