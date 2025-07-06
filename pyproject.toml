@@ -1,6 +1,6 @@
 [project]
 name = "despanol"
-version = "0.3.0" # Bump version for new model
+version = "0.3.1" # Bump version for viberdash
 description = "Python Tool for Phonetic Transliteration (German to Spanish)"
 authors = ["Johann <johann@example.com>"]
 dependencies = [
@@ -36,8 +36,26 @@ dev = [
     "pytest",
     "pandas-stubs",
     "types-requests",
+    "viberdash",
 ]
 
 [build-system]
 requires = ["hatchling"]
 build-backend = "hatchling.build"
+
+[tool.viberdash]
+# The directory to analyze
+source_dir = "src/despanol/"
+
+# Thresholds for metric visualization
+[tool.viberdash.thresholds.cyclomatic_complexity]
+good = 5.0
+bad = 10.0
+
+[tool.viberdash.thresholds.maintainability_index]
+good = 85.0
+bad = 65.0
+
+[tool.viberdash.thresholds.test_coverage]
+good = 80.0
+bad = 60.0

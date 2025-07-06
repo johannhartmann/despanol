@@ -34,6 +34,7 @@
           pytest
           pandas-stubs
           types-requests
+          viberdash
         ]);
         
         pyprojectToml = builtins.fromTOML (builtins.readFile ./pyproject.toml);
@@ -50,7 +51,7 @@
             echo "──────────────────────────────────"
             echo "      Despanol Development"
             echo "──────────────────────────────────"
-            echo "QA tools available: black, ruff, mypy, pytest"
+            echo "QA tools available: black, ruff, mypy, pytest, viberdash"
           '';
 
           PYTHONPATH = "./src";

@@ -128,3 +128,12 @@ To run the test suite:
 ```bash
 pytest
 ```
+
+### Quality Dashboard (ViberDash)
+This project uses [ViberDash](https://github.com/johannhartmann/viberdash) to provide a terminal dashboard for all quality assurance metrics.
+
+To run the dashboard:
+```bash
+viberdash
+```
+This will run all the QA tools and display the results in a convenient dashboard.
